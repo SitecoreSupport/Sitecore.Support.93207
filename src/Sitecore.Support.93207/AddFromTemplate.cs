@@ -5,9 +5,10 @@ using Sitecore.Diagnostics;
 using Sitecore.Globalization;
 using Sitecore.Text;
 using Sitecore.Web.UI.Sheer;
-using System;
+using Sitecore.Buckets.Managers;
+using Sitecore.Shell.Framework;
 
-namespace Sitecore.Shell.Framework.Pipelines
+namespace Sitecore.Support.Shell.Framework.Pipelines
 {
     /// <summary>
     /// Represents the Add From Template pipeline.
@@ -98,6 +99,10 @@ namespace Sitecore.Shell.Framework.Pipelines
                 });
                 BranchItem branch = item2;
                 item3 = Context.Workflow.AddItem(name, branch, item);
+                if (BucketManager.IsBucketable(item3))
+                {
+                    BucketManager.Sync(item3.Parent);
+                }
             }
             args.CarryResultToNextProcessor = true;
             if (item3 == null)

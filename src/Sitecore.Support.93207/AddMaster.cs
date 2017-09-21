@@ -1,4 +1,5 @@
-﻿using Sitecore.Configuration;
+﻿using Sitecore.Buckets.Managers;
+using Sitecore.Configuration;
 using Sitecore.Data.Events;
 using Sitecore.Data.Items;
 using Sitecore.Diagnostics;
@@ -8,8 +9,9 @@ using Sitecore.Web.UI.Sheer;
 using System;
 using System.Collections.Specialized;
 using System.Runtime.CompilerServices;
+using Sitecore.Shell.Framework.Commands;
 
-namespace Sitecore.Shell.Framework.Commands
+namespace Sitecore.Support.Shell.Framework.Commands
 {
     /// <summary>
     /// Represents the AddMaster command.
@@ -116,6 +118,10 @@ namespace Sitecore.Shell.Framework.Commands
                                 {
                                     AuditFormatter.FormatItem(branchItem)
                                 });
+                                if (BucketManager.IsBucketable(item3))
+                                {
+                                    BucketManager.Sync(item3.Parent);
+                                }
                             }
                             else
                             {
