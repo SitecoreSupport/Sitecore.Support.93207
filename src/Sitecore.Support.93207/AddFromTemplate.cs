@@ -1,51 +1,111 @@
-﻿using Sitecore.Diagnostics;
+﻿using Sitecore.Configuration;
+using Sitecore.Data;
+using Sitecore.Data.Items;
+using Sitecore.Diagnostics;
+using Sitecore.Globalization;
+using Sitecore.Text;
+using Sitecore.Web.UI.Sheer;
 using System;
 
-namespace Sitecore.Shell.Framework.Commands
+namespace Sitecore.Shell.Framework.Pipelines
 {
     /// <summary>
-    /// Represents the AddFromTemplate command.
+    /// Represents the Add From Template pipeline.
     /// </summary>
-    [Serializable]
-    public class AddFromTemplate : Command
+    public class AddFromTemplate
     {
         /// <summary>
-        /// Executes the command in the specified context.
+        /// Gets the template.
         /// </summary>
-        /// <param name="context">The context.</param>
+        /// <param name="args">The args.</param>
         /// <contract>
-        ///   <requires name="context" condition="not null" />
+        ///   <requires name="args" condition="not null" />
         /// </contract>
-        public override void Execute(CommandContext context)
+        public void GetTemplate(ClientPipelineArgs args)
         {
-            Assert.ArgumentNotNull(context, "context");
-            if (context.Items.Length != 1 || !context.Items[0].Access.CanCreate())
+            Assert.ArgumentNotNull(args, "args");
+            if (!SheerResponse.CheckModified())
             {
                 return;
             }
-            Items.AddFromTemplate(context.Items[0]);
+            UrlString urlString = new UrlString(UIUtil.GetUri("control:AddFromTemplate"));
+            string template = History.Template;
+            if (template != null && template.Length > 0)
+            {
+                urlString.Append("fo", template);
+            }
+            Context.ClientPage.ClientResponse.ShowModalDialog(urlString.ToString(), "1200px", "700px", "", true);
+            args.WaitForPostBack(false);
         }
 
         /// <summary>
-        /// Queries the state of the command.
+        /// Executes the action.
         /// </summary>
-        /// <param name="context">The context.</param>
-        /// <returns>The state of the command.</returns>
+        /// <param name="args">The args.</param>
         /// <contract>
-        ///   <requires name="context" condition="not null" />
+        ///   <requires name="args" condition="not null" />
         /// </contract>
-        public override CommandState QueryState(CommandContext context)
+        public void Execute(ClientPipelineArgs args)
         {
-            Assert.ArgumentNotNull(context, "context");
-            if (context.Items.Length != 1)
+            Assert.ArgumentNotNull(args, "args");
+            if (!args.HasResult)
             {
-                return CommandState.Hidden;
+                return;
             }
-            if (!context.Items[0].Access.CanCreate() || !context.Items[0].Access.CanWriteLanguage())
+            int num = args.Result.IndexOf(',');
+            Assert.IsTrue(num >= 0, "Invalid return value from dialog");
+            string path = StringUtil.Left(args.Result, num);
+            string name = StringUtil.Mid(args.Result, num + 1);
+            Database database = Factory.GetDatabase(args.Parameters["database"]);
+            string itemPath = args.Parameters["id"];
+            string name2 = args.Parameters["language"];
+            Item item = database.Items[itemPath, Language.Parse(name2)];
+            if (item == null)
             {
-                return CommandState.Disabled;
+                SheerResponse.Alert("Parent item not found.", new string[0]);
+                args.AbortPipeline();
+                return;
             }
-            return base.QueryState(context);
+            if (!item.Access.CanCreate())
+            {
+                SheerResponse.Alert("You do not have permission to create items here.", new string[0]);
+                args.AbortPipeline();
+                return;
+            }
+            Item item2 = database.GetItem(path, Language.Parse(name2));
+            if (item2 == null)
+            {
+                SheerResponse.Alert("Item not found.", new string[0]);
+                args.AbortPipeline();
+                return;
+            }
+            History.Template = item2.ID.ToString();
+            Item item3;
+            if (item2.TemplateID == TemplateIDs.Template)
+            {
+                Log.Audit(this, "Add from template: {0}", new string[]
+                {
+                    AuditFormatter.FormatItem(item2)
+                });
+                TemplateItem template = item2;
+                item3 = Context.Workflow.AddItem(name, template, item);
+            }
+            else
+            {
+                Log.Audit(this, "Add from branch: {0}", new string[]
+                {
+                    AuditFormatter.FormatItem(item2)
+                });
+                BranchItem branch = item2;
+                item3 = Context.Workflow.AddItem(name, branch, item);
+            }
+            args.CarryResultToNextProcessor = true;
+            if (item3 == null)
+            {
+                args.AbortPipeline();
+                return;
+            }
+            args.Result = item3.ID.ToString();
         }
     }
 }
