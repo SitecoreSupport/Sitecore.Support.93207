@@ -1,6 +1,6 @@
 ﻿namespace Sitecore.Support.Shell.Framework.Pipelines
 {
-
+  using Sitecore.Buckets.Managers;
   using Sitecore.Configuration;
   using Sitecore.Data;
   using Sitecore.Data.Items;
@@ -13,6 +13,7 @@
 
   public class AddFromTemplate
   {
+
     // Methods
     protected virtual Item AddItemFromBranch(string name, BranchItem branch, Item parent) =>
         Context.Workflow.AddItem(name, branch, parent);
@@ -73,6 +74,14 @@
               this.AuditMessage(this, "Add from branch: {0}", parameters);
               BranchItem branch = item;
               item3 = this.AddItemFromBranch(name, branch, parent);
+
+              #region Issue fix
+              if (BucketManager.IsBucketable(item3))
+              {
+                BucketManager.Sync(item3.Parent);
+              }
+              #endregion
+
             }
             args.CarryResultToNextProcessor = true;
             if (item3 == null)

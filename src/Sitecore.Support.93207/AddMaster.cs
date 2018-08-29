@@ -1,6 +1,8 @@
 ﻿
-namespace Sitecore.Support.Shell.Framework.Commands
+namespace Sitecore.Support.Buckets.Pipelines.UI
 {
+  using Sitecore.Buckets.Managers;
+  using Sitecore.Configuration;
   using Sitecore.Data.Events;
   using Sitecore.Data.Items;
   using Sitecore.Diagnostics;
@@ -10,16 +12,30 @@ namespace Sitecore.Support.Shell.Framework.Commands
   using Sitecore.Web.UI.Sheer;
   using System;
   using System.Collections.Specialized;
-  using System.Runtime.CompilerServices;
 
   [Serializable]
-  public class AddMaster : Command
+  public class AddMaster : Sitecore.Shell.Framework.Commands.Command
   {
-    // Events
-    [field: CompilerGenerated]
     protected event ItemCreatedDelegate ItemCreated;
 
-    // Methods
+    public AddMaster()
+    {
+      ItemCreated += new ItemCreatedDelegate(this.OnItemCreated);
+    }
+
+    private void OnItemCreated(object sender, ItemCreatedEventArgs args)
+    {
+      Assert.ArgumentNotNull(sender, "sender");
+      Assert.ArgumentNotNull(args, "args");
+      Item item = args.Item;
+
+      if ((item != null) && BucketManager.IsItemContainedWithinBucket(item))
+      {
+        Context.ClientPage.ClientResponse.Eval("setTimeout(function(){ scForm.invoke(\"item:load(id=" + item.ID + ")\"); }, 0)");
+      }
+    }
+
+
     protected void Add(ClientPipelineArgs args)
     {
       if (SheerResponse.CheckModified())
@@ -65,6 +81,14 @@ namespace Sitecore.Support.Shell.Framework.Commands
                   BranchItem branch = item;
                   item3 = Context.Workflow.AddItem(args.Result, branch, parent);
                   string[] parameters = new string[] { AuditFormatter.FormatItem((Item)branch) };
+
+                  #region Issue Fixing
+                  if (BucketManager.IsBucketable(item3))
+                  {
+                    BucketManager.Sync(item3.Parent);
+                  }
+                  #endregion 
+
                   Log.Audit(this, "Add from branch: {0}", parameters);
                 }
                 else
@@ -125,5 +149,4 @@ namespace Sitecore.Support.Shell.Framework.Commands
       return base.QueryState(context);
     }
   }
-
 }
