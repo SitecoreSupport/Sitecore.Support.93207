@@ -81,14 +81,6 @@ namespace Sitecore.Support.Buckets.Pipelines.UI
                   BranchItem branch = item;
                   item3 = Context.Workflow.AddItem(args.Result, branch, parent);
                   string[] parameters = new string[] { AuditFormatter.FormatItem((Item)branch) };
-
-                  #region Issue Fixing
-                  if (BucketManager.IsBucketable(item3))
-                  {
-                    BucketManager.Sync(item3.Parent);
-                  }
-                  #endregion 
-
                   Log.Audit(this, "Add from branch: {0}", parameters);
                 }
                 else
@@ -107,6 +99,13 @@ namespace Sitecore.Support.Buckets.Pipelines.UI
               if ((item3 != null) && (this.ItemCreated != null))
               {
                 this.ItemCreated(this, new ItemCreatedEventArgs(item3));
+
+                #region Issue Fixing
+                if (BucketManager.IsBucketable(item3))
+                {
+                  BucketManager.Sync(item3.Parent);
+                }
+                #endregion
               }
             }
           }
